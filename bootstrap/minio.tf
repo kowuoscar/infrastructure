@@ -36,7 +36,7 @@ resource "minio_s3_bucket" "klabs-state-bucket" {
 }
 
 resource "minio_s3_bucket_versioning" "klabs-state-bucket" {
-  bucket = "klabs-state-bucket"
+  bucket = minio_s3_bucket.klabs-state-bucket.bucket
 
   versioning_configuration {
     status = "Enabled"

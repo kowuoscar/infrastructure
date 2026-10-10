@@ -43,6 +43,6 @@ aws s3api head-object \
 4. Terminal 2 - Execute `terraform plan` and expect a locking error.
 
 The result is that despite the locking file is created when using `terraform apply`, the second `plan` command still passed
-ovewriting the lock that was in place.
+ovewriting the lock that was in place. The `use_lockfile` is therefore not necessary.
 
 **Conclusion: Option B for apply changes against the state with one CI job.**
