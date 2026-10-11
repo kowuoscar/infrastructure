@@ -28,7 +28,14 @@ since Hetzner object storage doesn't support state write lock (0001-terraform-st
 
 - This requires setting up a read-write token permission for Hetzner object storage. 
 - This also requires a read-write token permission for Cloudflare for DNS related changes.
-- **Needs verification** Read-only permission for local setup and read-only plan workflows to prevent apply mistakes
+- Read-only permission for local setup to prevent apply mistakes
+
+- Verified [2026-10-11] - Hetzner read-only permission is configurable and works as expected.
+It is done by defining a second project that holds the credentials and adding a policy on the bucket
+that hold the state in a different project.
+NB - During the test phase, we notice Hetzner sends an empty message which aws cli fails to understand and prints NoneType.Evaluating it requires to add debug to read the HTTP code status and understand the root reason.
+Another good to know - the current credentials is still needed for bootstrap (required for adding policies, deleting files)
+It will be stored in a password manager outside of my mac and used only in case of needs.
 
 ## Revisited
 
