@@ -35,7 +35,7 @@ jobs:
       TF_VAR_hcloud_token: ${{ secrets.HCLOUD_READ_TOKEN }}
       TF_VAR_source_ip: ${{ vars.TF_VAR_SOURCE_IP }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
