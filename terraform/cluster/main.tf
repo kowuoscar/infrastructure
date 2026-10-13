@@ -11,7 +11,13 @@ locals {
 
 resource "hcloud_ssh_key" "oscar" {
   name       = "oscar"
-  public_key = file("${path.module}/keys/oscar.pub")
+  public_key = trimspace(file("${path.module}/keys/oscar.pub"))
+}
+
+# The key was added in the Hetzner console before Terraform managed the project (uniqueness_error).
+import {
+  id = "131132384"
+  to = hcloud_ssh_key.oscar
 }
 
 # Network
