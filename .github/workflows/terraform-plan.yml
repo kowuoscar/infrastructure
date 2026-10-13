@@ -33,7 +33,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.HETZNER_S3_RO_SECRET_KEY }}
       TF_VAR_api_token: ${{ secrets.CLOUDFLARE_READ_TOKEN }}
       TF_VAR_hcloud_token: ${{ secrets.HCLOUD_READ_TOKEN }}
-      TF_VAR_source_ip: ${{ secrets.SSH_SOURCE_IP }}
+      TF_VAR_source_ip: ${{ vars.TF_VAR_SOURCE_IP }}
     steps:
       - uses: actions/checkout@v4
 
