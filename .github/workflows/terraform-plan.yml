@@ -1,0 +1,45 @@
+name: terraform-plan
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "terraform/dns/**"
+      - ".github/workflows/terraform-plan.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-plan-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  plan-dns:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform/dns
+    env:
+      TF_IN_AUTOMATION: "1"
+      AWS_ACCESS_KEY_ID: ${{ secrets.HETZNER_S3_RO_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.HETZNER_S3_RO_SECRET_KEY }}
+      TF_VAR_api_token: ${{ secrets.CLOUDFLARE_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.1
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive
+
+      - name: terraform init
+        run: terraform init -input=false
+
+      - name: terraform validate
+        run: terraform validate
+
+      - name: terraform plan
+        run: terraform plan -input=false -no-color

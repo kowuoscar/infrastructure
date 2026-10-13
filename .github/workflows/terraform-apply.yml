@@ -1,0 +1,41 @@
+name: terraform-apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/dns/**"
+      - ".github/workflows/terraform-apply.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  apply-dns:
+    runs-on: ubuntu-latest
+    environment: production
+    # Option B (ADR 0003): Hetzner does not lock the state, so applies run one at a time.
+    # Never cancel a running apply: it would leave resources created but missing from the state.
+    concurrency:
+      group: terraform-apply-dns
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: terraform/dns
+    env:
+      TF_IN_AUTOMATION: "1"
+      AWS_ACCESS_KEY_ID: ${{ secrets.HETZNER_S3_RW_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.HETZNER_S3_RW_SECRET_KEY }}
+      TF_VAR_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.1
+
+      - name: terraform init
+        run: terraform init -input=false
+
+      - name: terraform apply
+        run: terraform apply -input=false -auto-approve -no-color

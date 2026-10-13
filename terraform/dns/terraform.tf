@@ -17,7 +17,7 @@ terraform {
     skip_region_validation      = true
     skip_credentials_validation = true
     skip_requesting_account_id  = true
-    use_path_style = true 
+    use_path_style              = true
   }
 }
 
