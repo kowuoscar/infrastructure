@@ -23,7 +23,7 @@ If Hetzner doesn't support the use_lockfile that enables locking the state file 
 
 - Make sure to delete the local state file after the boostrap.
 Terraform is used to bootstrap the whole infrastructure as well as the bucket. That being said, the bucket configuration lives in its own directory separated from the rest of the infrastructure. The first state is local before being moved to the bucket with `-migrate-state`. The local state needs to be deleted after that.
-- Storage keys permissions - Write for the pipeline and read for engineers with `plan -lock=false`
+- Storage keys permissions - Write for the pipeline and read for engineers. Since `use_lockfile` is not used, `plan` writes nothing to the bucket and needs no `-lock=false`. The read-only and read-write keys are implemented through a bucket policy (see ADR 0003).
 
 This ADR will be revised after the first test result on the FIRST APPROACH.
 
@@ -45,4 +45,10 @@ aws s3api head-object \
 The result is that despite the locking file is created when using `terraform apply`, the second `plan` command still passed
 ovewriting the lock that was in place. The `use_lockfile` is therefore not necessary.
 
-**Conclusion: Option B for apply changes against the state with one CI job.**
+**Conclusion: Option B for apply changes against the state with one CI job.** The CI is described in ADR 0003.
+
+## Other findings
+
+- `use_lockfile` is removed from every backend block: Hetzner ignores `If-None-Match`, so the lock gives a false sense of safety.
+- `encrypt = true` (SSE-S3) is rejected by Hetzner with `400 InvalidArgument`. The state is not encrypted at rest by the backend; access to the bucket is the barrier.
+- Until a root is applied only by the CI, nothing prevents two concurrent applies on it. Today only `terraform/dns` is applied by the CI; `terraform/bootstrap` is applied manually with the bucket project key.

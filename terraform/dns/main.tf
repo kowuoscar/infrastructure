@@ -5,6 +5,10 @@ resource "cloudflare_zone" "zone" {
   }
   name = "kowulabs.com"
   type = "full"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 import {
