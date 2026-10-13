@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "terraform/dns/**"
+      - "terraform/cluster/**"
       - ".github/workflows/terraform-plan.yml"
 
 permissions:
@@ -15,16 +16,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  plan-dns:
+  plan:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # bootstrap is applied manually with the bucket project key (ADR 0003), never in CI.
+        root: [dns, cluster]
     defaults:
       run:
-        working-directory: terraform/dns
+        working-directory: terraform/${{ matrix.root }}
+    # Read-only credentials only: a plan never writes. Each root uses the variables it declares.
     env:
       TF_IN_AUTOMATION: "1"
       AWS_ACCESS_KEY_ID: ${{ secrets.HETZNER_S3_RO_ACCESS_KEY }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.HETZNER_S3_RO_SECRET_KEY }}
       TF_VAR_api_token: ${{ secrets.CLOUDFLARE_READ_TOKEN }}
+      TF_VAR_hcloud_token: ${{ secrets.HCLOUD_READ_TOKEN }}
+      TF_VAR_source_ip: ${{ vars.TF_VAR_SOURCE_IP }}
     steps:
       - uses: actions/checkout@v4
 

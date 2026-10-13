@@ -1,0 +1,43 @@
+name: terraform-apply-cluster
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/cluster/**"
+      - ".github/workflows/terraform-apply-cluster.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  apply-cluster:
+    runs-on: ubuntu-24.04
+    # One environment per root: this one holds only the cluster's write credentials.
+    environment: production-cluster
+    # Option B (ADR 0003): Hetzner does not lock the state, so applies on this root run one at a time.
+    # Never cancel a running apply: it would leave resources created but missing from the state.
+    concurrency:
+      group: terraform-apply-cluster
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: terraform/cluster
+    env:
+      TF_IN_AUTOMATION: "1"
+      AWS_ACCESS_KEY_ID: ${{ secrets.HETZNER_S3_RW_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.HETZNER_S3_RW_SECRET_KEY }}
+      TF_VAR_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
+      TF_VAR_source_ip: ${{ vars.TF_VAR_SOURCE_IP }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.16.1
+
+      - name: terraform init
+        run: terraform init -input=false
+
+      - name: terraform apply
+        run: terraform apply -input=false -auto-approve -no-color
