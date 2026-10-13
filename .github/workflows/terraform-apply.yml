@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   apply-dns:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: production
     # Option B (ADR 0003): Hetzner does not lock the state, so applies run one at a time.
     # Never cancel a running apply: it would leave resources created but missing from the state.
