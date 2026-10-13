@@ -166,3 +166,16 @@ import {
   to       = cloudflare_dns_record.cname_record
 }
 
+
+# Kubernetes API endpoint (ADR 0004): kubeadm --control-plane-endpoint, private IP of klabs-cp-1.
+# Moving to three control planes only changes this content to the load balancer's private IP.
+
+resource "cloudflare_dns_record" "k8s_api_record" {
+  provider = cloudflare
+  zone_id  = cloudflare_zone.zone.id
+  name     = "k8s-api.${var.domain_name}"
+  ttl      = 1
+  type     = "A"
+  content  = "10.0.1.10"
+  proxied  = false
+}
