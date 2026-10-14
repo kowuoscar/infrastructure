@@ -14,12 +14,6 @@ resource "hcloud_ssh_key" "oscar" {
   public_key = trimspace(file("${path.module}/keys/oscar.pub"))
 }
 
-# The key was added in the Hetzner console before Terraform managed the project (uniqueness_error).
-import {
-  id = "131132384"
-  to = hcloud_ssh_key.oscar
-}
-
 # Network
 
 resource "hcloud_network" "network" {
