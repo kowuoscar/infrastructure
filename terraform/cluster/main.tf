@@ -42,6 +42,18 @@ resource "hcloud_firewall" "nodes" {
   }
 }
 
+resource "hcloud_firewall" "runner" {
+  name = "ci-ssh"
+
+  lifecycle {
+    ignore_changes = [rule]
+  }
+
+  apply_to {
+    label_selector = "role in (control-plane,worker)"
+  }
+}
+
 # Servers
 
 resource "hcloud_server" "node" {
