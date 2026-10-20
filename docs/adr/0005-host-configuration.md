@@ -48,6 +48,7 @@ Free plan.
 - The CI holds an SSH key with root access to every server, in addition to the Hetzner token that
   can already delete them.
 - Two tools run in sequence on each change to `cluster`: Terraform, then Ansible.
+- Since Hetzner only installs SSH keys when a server is created, adding a new SSH key for the CI runners recreates the servers. This is accepted today because the servers are empty.
 
 ## Alternatives considered
 
@@ -70,3 +71,5 @@ Free plan.
 
 Revisit when M2 brings WireGuard: the runner would reach the servers through the tunnel, the CI
 firewall and public port 22 would go away, and the playbooks would stay the same.
+
+Revisit before the first workload runs on the cluster: key rotation must no longer recreate servers. Considered approach: Terraform keeps `ssh_keys` to bootstrap new servers, with `lifecycle { ignore_changes = [ssh_keys] }` on `hcloud_server`; Ansible manages `authorized_keys` on existing servers (`ansible.posix.authorized_key`).

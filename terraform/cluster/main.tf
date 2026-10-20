@@ -14,6 +14,11 @@ resource "hcloud_ssh_key" "oscar" {
   public_key = trimspace(file("${path.module}/keys/oscar.pub"))
 }
 
+resource "hcloud_ssh_key" "ci" {
+  name       = "ci-ssh-key"
+  public_key = trimspace(file("${path.module}/keys/ci-ssh.pub"))
+}
+
 # Network
 
 resource "hcloud_network" "network" {
@@ -58,7 +63,7 @@ resource "hcloud_server" "node" {
   server_type  = each.value.type
   image        = "ubuntu-24.04"
   location     = "fsn1"
-  ssh_keys     = [hcloud_ssh_key.oscar.id]
+  ssh_keys     = [hcloud_ssh_key.oscar.id, hcloud_ssh_key.ci.id]
   firewall_ids = [hcloud_firewall.nodes.id, hcloud_firewall.runner.id]
   labels       = { role = each.value.role }
 

@@ -1,0 +1,133 @@
+- name: containerd and kubeadm setup
+  hosts: all
+  become: true
+
+  vars:
+    containerd_version: "2.4.2"
+    runc_version: "1.5.2"
+    arch_map:
+      aarch64: arm64
+      x86_64: amd64
+    arch: "{{ arch_map[ansible_facts['architecture']] }}"
+    k8s_repository_version: "1.37"
+    k8s_package_version: "{{ k8s_repository_version }}.1-1.1"
+
+  tasks:
+    - name: containerd tar exists
+      ansible.builtin.get_url:
+        url: "https://github.com/containerd/containerd/releases/download/v{{ containerd_version }}/containerd-{{ containerd_version }}-linux-{{ arch }}.tar.gz"
+        dest: "/tmp/containerd-{{ containerd_version }}-linux-{{ arch }}.tar.gz"
+        mode: "0644"
+
+    - name: containerd tar is untar
+      ansible.builtin.unarchive:
+        src: "/tmp/containerd-{{ containerd_version }}-linux-{{ arch }}.tar.gz"
+        dest: "/usr/local"
+        remote_src: true
+
+    - name: containerd.service directory exists
+      ansible.builtin.file:
+        path: /usr/local/lib/systemd/system
+        state: directory
+        mode: "0755"
+
+    - name: containerd.service is present
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/containerd/containerd/v{{ containerd_version }}/containerd.service
+        dest: /usr/local/lib/systemd/system/containerd.service
+        mode: "0644"
+      notify:
+        - Reload daemon
+        - Restart containerd
+
+    - name: containerd config directory exists
+      ansible.builtin.file:
+        path: /etc/containerd/
+        state: directory
+        mode: "0755"
+
+    - name: containerd config.toml exists
+      ansible.builtin.shell: containerd config default > /etc/containerd/config.toml
+      args:
+        creates: /etc/containerd/config.toml
+      notify: Restart containerd
+
+    - name: containerd config SystemdCgroup is true
+      ansible.builtin.replace:
+        path: /etc/containerd/config.toml
+        regexp: '^(\s*)SystemdCgroup = false$'
+        replace: '\1SystemdCgroup = true'
+      notify: Restart containerd
+
+    - name: runc is installed
+      ansible.builtin.get_url:
+        url: https://github.com/opencontainers/runc/releases/download/v{{ runc_version }}/runc.{{ arch }}
+        dest: /usr/local/sbin/runc
+        mode: "0755"
+
+    - name: containerd is enabled and started
+      ansible.builtin.systemd_service:
+        name: containerd
+        enabled: true
+        state: started
+
+    - name: net.ipv4.ip_forward value is 1
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: "1"
+        sysctl_file: /etc/sysctl.d/net-ipv4-forward.conf
+        state: present
+        reload: true
+
+    - name: swap is disabled
+      ansible.builtin.command: swapoff -a
+      when: ansible_facts['swaptotal_mb'] > 0
+
+    - name: swap configuration is commented in fstab
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\sswap\s.*)$'
+        replace: '# \1'
+
+    - name: kubernetes repository is configured
+      ansible.builtin.deb822_repository:
+        name: kubernetes
+        types: deb
+        uris: https://pkgs.k8s.io/core:/stable:/v{{ k8s_repository_version }}/deb/
+        suites: "/"
+        signed_by: "https://pkgs.k8s.io/core:/stable:/v{{ k8s_repository_version }}/deb/Release.key"
+
+    - name: kubernetes packages are present
+      ansible.builtin.apt:
+        name:
+          - "kubelet={{ k8s_package_version }}"
+          - "kubeadm={{ k8s_package_version }}"
+          - "kubectl={{ k8s_package_version }}"
+        state: present
+        update_cache: true
+
+    - name: kubernetes packages are on-hold
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+        - kubernetes-cni
+
+    - name: kubelet is enabled and started
+      ansible.builtin.systemd_service:
+        name: kubelet
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Reload daemon
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    - name: Restart containerd
+      ansible.builtin.systemd_service:
+        name: containerd
+        state: restarted
