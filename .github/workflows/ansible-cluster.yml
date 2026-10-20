@@ -1,0 +1,86 @@
+name: ansible-cluster
+
+on:
+  # Servers recreated by Terraform must be configured right away (ADR 0005).
+  workflow_run:
+    workflows: [terraform-apply-cluster]
+    types: [completed]
+    branches: [main]
+  # The configuration itself changed.
+  push:
+    branches: [main]
+    paths:
+      - "ansible/**"
+      - ".github/workflows/ansible-cluster.yml"
+      - ".github/scripts/ci-firewall.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  configure:
+    # workflow_run fires whatever the apply's result: only go on after a successful apply from a push to main.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    environment: production-cluster
+    # One run at a time. Never cancel a running one: a node could be left half configured.
+    concurrency:
+      group: ansible-cluster
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: ansible
+    env:
+      # Fresh servers have unknown host keys (trust on first use).
+      ANSIBLE_HOST_KEY_CHECKING: "False"
+      ANSIBLE_PYTHON_INTERPRETER: auto_silent
+      ANSIBLE_FORCE_COLOR: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # workflow_run checks out the latest main: configure the commit Terraform applied instead.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: install ansible
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/venv/bin/pip" install -r requirements.txt
+          "$RUNNER_TEMP/venv/bin/ansible-galaxy" collection install -r requirements.yml
+
+      - name: write ssh key
+        env:
+          SSH_KEY: ${{ secrets.SERVERS_PRIVATE_SSH }}
+        run: |
+          install -m 600 /dev/null "$RUNNER_TEMP/ci-ssh"
+          printf '%s\n' "$SSH_KEY" > "$RUNNER_TEMP/ci-ssh"
+
+      - name: open ci-ssh firewall to this runner
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: ../.github/scripts/ci-firewall.sh open "$(curl -fsS https://api.ipify.org)"
+
+      - name: wait for servers
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          ansible all -i prod.hcloud.yml --private-key "$RUNNER_TEMP/ci-ssh" \
+            -m ansible.builtin.wait_for_connection -a timeout=300
+          # cloud-init holds the apt lock on fresh servers. Exit code 2 means done with warnings.
+          ansible all -i prod.hcloud.yml --private-key "$RUNNER_TEMP/ci-ssh" \
+            -m ansible.builtin.shell -a 'cloud-init status --wait > /dev/null || [ $? -eq 2 ]'
+
+      - name: ansible-playbook
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: ansible-playbook -i prod.hcloud.yml site.yml --private-key "$RUNNER_TEMP/ci-ssh"
+
+      - name: close ci-ssh firewall
+        # Also on failure and cancellation; the daily cleanup covers the case where this step itself fails.
+        if: always()
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: ../.github/scripts/ci-firewall.sh close
