@@ -1,0 +1,9 @@
+plugin: hetzner.hcloud.hcloud
+
+connect_with: public_ipv4
+
+keyed_groups:
+  - key: hcloud_location
+    prefix: dc
+  - key: hcloud_labels.role
+    prefix: role
