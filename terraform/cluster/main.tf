@@ -48,10 +48,6 @@ resource "hcloud_firewall" "runner" {
   lifecycle {
     ignore_changes = [rule]
   }
-
-  apply_to {
-    label_selector = "role in (control-plane,worker)"
-  }
 }
 
 # Servers
@@ -63,7 +59,7 @@ resource "hcloud_server" "node" {
   image        = "ubuntu-24.04"
   location     = "fsn1"
   ssh_keys     = [hcloud_ssh_key.oscar.id]
-  firewall_ids = [hcloud_firewall.nodes.id]
+  firewall_ids = [hcloud_firewall.nodes.id, hcloud_firewall.runner.id]
   labels       = { role = each.value.role }
 
   network {
