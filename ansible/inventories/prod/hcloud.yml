@@ -2,6 +2,10 @@ plugin: hetzner.hcloud.hcloud
 
 connect_with: public_ipv4
 
+compose:
+  ansible_user: "'root'"
+  node_ip: hcloud_private_networks[0].ip
+
 keyed_groups:
   - key: hcloud_location
     prefix: dc

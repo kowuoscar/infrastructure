@@ -36,6 +36,7 @@ jobs:
     env:
       # Fresh servers have unknown host keys (trust on first use).
       ANSIBLE_HOST_KEY_CHECKING: "False"
+      ANSIBLE_INVENTORY_UNPARSED_FAILED: "True"
       ANSIBLE_PYTHON_INTERPRETER: auto_silent
       ANSIBLE_FORCE_COLOR: "1"
     steps:
@@ -67,16 +68,16 @@ jobs:
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
         run: |
-          ansible all -i prod.hcloud.yml --private-key "$RUNNER_TEMP/ci-ssh" \
+          ansible all -i inventories/prod/hcloud.yml --private-key "$RUNNER_TEMP/ci-ssh" \
             -m ansible.builtin.wait_for_connection -a timeout=300
           # cloud-init holds the apt lock on fresh servers. Exit code 2 means done with warnings.
-          ansible all -i prod.hcloud.yml --private-key "$RUNNER_TEMP/ci-ssh" \
+          ansible all -i inventories/prod/hcloud.yml --private-key "$RUNNER_TEMP/ci-ssh" \
             -m ansible.builtin.shell -a 'cloud-init status --wait > /dev/null || [ $? -eq 2 ]'
 
       - name: ansible-playbook
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
-        run: ansible-playbook -i prod.hcloud.yml site.yml --private-key "$RUNNER_TEMP/ci-ssh"
+        run: ansible-playbook -i inventories/prod/hcloud.yml site.yml --private-key "$RUNNER_TEMP/ci-ssh"
 
       - name: close ci-ssh firewall
         # Also on failure and cancellation; the daily cleanup covers the case where this step itself fails.
