@@ -116,6 +116,16 @@
         - kubectl
         - kubernetes-cni
 
+    - name: kubelet configuration is present
+      ansible.builtin.copy:
+        dest: /etc/default/kubelet
+        content: |
+          KUBELET_EXTRA_ARGS=--node-ip={{ node_ip }}
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart kubelet
+
     - name: kubelet is enabled and started
       ansible.builtin.systemd_service:
         name: kubelet
@@ -131,3 +141,54 @@
       ansible.builtin.systemd_service:
         name: containerd
         state: restarted
+
+    - name: Restart kubelet
+      ansible.builtin.systemd_service:
+        name: kubelet
+        state: restarted
+
+- name: kubeadm installation
+  hosts: role_control_plane
+  become: true
+
+  vars:
+    pod_network_cidr: 10.244.0.0/16
+
+  tasks:
+    - name: kubernetes admin conf exists
+      ansible.builtin.stat:
+        path: /etc/kubernetes/admin.conf
+      register: kubeadm_conf
+
+    - name: apiserver is up and running
+      ansible.builtin.command: >-
+        curl --fail --silent --max-time 5 --cacert /etc/kubernetes/pki/ca.crt https://{{ node_ip }}:6443/readyz
+      register: apiserver_health
+      until: apiserver_health.rc == 0
+      retries: 5
+      delay: 10
+      failed_when: false
+      changed_when: false
+      when: kubeadm_conf.stat.exists
+
+    - name: play fails when node is initialized but apiserver is not ready
+      ansible.builtin.fail:
+        msg: >-
+          kube-apiserver exists but does not answer on /readyz
+          Manual intervention needed
+      when:
+        - kubeadm_conf.stat.exists
+        - apiserver_health.rc != 0
+
+    - name: play ends here when node is already initialized and apiserver is healthy
+      ansible.builtin.meta: end_host
+      when: kubeadm_conf.stat.exists
+
+    - name: node is initialized as a cluster
+      ansible.builtin.command: >-
+        kubeadm init 
+        --control-plane-endpoint {{ cluster_endpoint }}
+        --pod-network-cidr {{ pod_network_cidr }}
+        --apiserver-advertise-address {{ node_ip }}
+        --skip-phases addon/kube-proxy
+        --skip-token-print
