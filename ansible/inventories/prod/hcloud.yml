@@ -6,7 +6,7 @@ compose:
   ansible_user: "'root'"
   node_ip: hcloud_private_networks[0].ip
   cluster_endpoint_host: "'k8s-api.kowulabs.com'"
-  cluster_endpoint_port: "'6443'"
+  cluster_endpoint_port: "6443"
 
 keyed_groups:
   - key: hcloud_location
