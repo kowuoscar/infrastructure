@@ -162,7 +162,7 @@
 
     - name: apiserver is up and running
       ansible.builtin.command: >-
-        curl --fail --silent --max-time 5 --cacert /etc/kubernetes/pki/ca.crt https://{{ node_ip }}:6443/readyz
+        curl --fail --silent --max-time 5 --cacert /etc/kubernetes/pki/ca.crt https://{{ node_ip }}:{{ cluster_endpoint_port }}/readyz
       register: apiserver_health
       until: apiserver_health.rc == 0
       retries: 5
@@ -186,9 +186,72 @@
 
     - name: node is initialized as a cluster
       ansible.builtin.command: >-
-        kubeadm init 
-        --control-plane-endpoint {{ cluster_endpoint }}
+        kubeadm init
+        --control-plane-endpoint {{ cluster_endpoint_host }}:{{ cluster_endpoint_port }}
         --pod-network-cidr {{ pod_network_cidr }}
         --apiserver-advertise-address {{ node_ip }}
         --skip-phases addon/kube-proxy
         --skip-token-print
+
+- name: cilium installation
+  hosts: role_control_plane
+  become: true
+
+  vars:
+    helm_version: "3.22.1"
+    cilium_version: "1.20.3"
+    arch_map:
+      aarch64: arm64
+      x86_64: amd64
+    arch: "{{ arch_map[ansible_facts['architecture']] }}"
+
+  tasks:
+    - name: helm tar exists
+      ansible.builtin.get_url:
+        url: "https://get.helm.sh/helm-v{{ helm_version }}-linux-{{ arch }}.tar.gz"
+        dest: "/tmp/helm-v{{ helm_version }}-linux-{{ arch }}.tar.gz"
+        checksum: "sha256:https://get.helm.sh/helm-v{{ helm_version }}-linux-{{ arch }}.tar.gz.sha256sum"
+        mode: "0644"
+
+    - name: helm directory exists
+      ansible.builtin.file:
+        path: "/opt/helm-v{{ helm_version }}"
+        state: directory
+        mode: "0755"
+
+    - name: helm tar is untar
+      ansible.builtin.unarchive:
+        src: "/tmp/helm-v{{ helm_version }}-linux-{{ arch }}.tar.gz"
+        dest: "/opt/helm-v{{ helm_version }}"
+        remote_src: true
+        creates: "/opt/helm-v{{ helm_version }}/linux-{{ arch }}/helm"
+
+    - name: helm is in the PATH
+      ansible.builtin.file:
+        src: "/opt/helm-v{{ helm_version }}/linux-{{ arch }}/helm"
+        dest: /usr/local/bin/helm
+        state: link
+
+    - name: cilium is installed
+      kubernetes.core.helm:
+        kubeconfig: /etc/kubernetes/admin.conf
+        release_name: cilium
+        release_namespace: kube-system
+        chart_repo_url: https://helm.cilium.io/
+        chart_ref: cilium
+        chart_version: "{{ cilium_version }}"
+        values:
+          # No kube-proxy: Cilium reaches the API directly, not through 10.96.0.1.
+          kubeProxyReplacement: true
+          k8sServiceHost: "{{ cluster_endpoint_host }}"
+          k8sServicePort: "{{ cluster_endpoint_port }}"
+          # Pod IPs come from the per-node ranges kubeadm cut from --pod-network-cidr.
+          ipam:
+            mode: kubernetes
+          hubble:
+            relay:
+              enabled: true
+            ui:
+              enabled: true
+          operator:
+            replicas: 1
