@@ -49,10 +49,6 @@ Free plan.
   can already delete them.
 - Two tools run in sequence on each change to `cluster`: Terraform, then Ansible.
 - Since Hetzner only installs SSH keys when a server is created, adding a new SSH key for the CI runners recreates the servers. This is accepted today because the servers are empty.
-- Cilium as the CNI (replaces kube-proxy) due to the support of NetworkPolicies and the observability provided.
-- 10.244.0.0/16 for the pods network cidr - it does not overlap the servers network range.
-- 10.96.0.0/12 as the default network cidr range for services.
-
 ## Alternatives considered
 
 - **Self-hosted runner in the private network** (the usual setup in companies): rejected. On a
@@ -69,9 +65,6 @@ Free plan.
 - **Managing the CI firewall rules in Terraform**, so that an apply removes a forgotten rule:
   rejected. The apply only runs when `terraform/cluster` changes, which can take weeks, and an apply
   that overlaps an Ansible run would remove the rule that run is using.
-- **Flannel and Calico for the CNI**, Flannel is rejected because it doesn't support NetworkPolicies, Calico
-  is a good candidate but doesn't provide the observability level as Cilium which I need to learn more about
-  Kubernetes network internals.
 
 ## Reversibility and revisit conditions
 
