@@ -255,3 +255,58 @@
               enabled: true
           operator:
             replicas: 1
+
+- name: join command for workers node
+  hosts: role_control_plane
+  become: true
+
+  tasks:
+    - name: kubeadm join command is generated
+      ansible.builtin.command: kubeadm token create --print-join-command --ttl 10m
+      register: kubeadm_join_command
+      changed_when: false
+      no_log: true
+
+- name: workers node registration in the cluster
+  hosts: role_worker
+  become: true
+
+  vars:
+    control_plane: "{{ groups['role_control_plane'][0] }}"
+    kubelet_host: 127.0.0.1
+    kubelet_port: 10248
+
+  tasks:
+    - name: kubelet conf exists
+      ansible.builtin.stat:
+        path: /etc/kubernetes/kubelet.conf
+      register: kubelet_conf
+
+    - name: kubelet is up and running
+      ansible.builtin.command: >-
+        curl --fail --silent --max-time 5 http://{{ kubelet_host }}:{{ kubelet_port }}/healthz
+      register: kubelet_health
+      until: kubelet_health.rc == 0
+      retries: 5
+      delay: 10
+      failed_when: false
+      changed_when: false
+      when: kubelet_conf.stat.exists
+
+    - name: play fails when kubelet is not ready
+      ansible.builtin.fail:
+        msg: >-
+          kubelet exists but does not answer on /healthz.
+          Manual intervention needed
+      when:
+        - kubelet_conf.stat.exists
+        - kubelet_health.rc != 0
+
+    - name: play ends here when node joined the cluster and kubelet is healthy
+      ansible.builtin.meta: end_host
+      when: kubelet_conf.stat.exists
+
+    - name: node joined the cluster
+      ansible.builtin.command: >-
+        {{ hostvars[control_plane]['kubeadm_join_command']['stdout'] }}
+      no_log: true
