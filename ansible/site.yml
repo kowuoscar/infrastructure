@@ -193,6 +193,49 @@
         --skip-phases addon/kube-proxy
         --skip-token-print
 
+- name: hetzner ccm secret setup
+  hosts: role_control_plane
+  become: true
+
+  vars:
+    # Ubuntu's python3-kubernetes (22.6.0) is older than kubernetes.core needs (>= 24.2.0),
+    # and pip is blocked in the system Python (PEP 668): the library lives in its own venv.
+    k8s_python_venv: /opt/ansible-k8s-venv
+    k8s_python_version: "37.0.1"
+
+  tasks:
+    - name: python venv package is present
+      ansible.builtin.apt:
+        name: python3-venv
+        state: present
+
+    - name: kubernetes python library is present
+      ansible.builtin.pip:
+        name: "kubernetes=={{ k8s_python_version }}"
+        virtualenv: "{{ k8s_python_venv }}"
+        virtualenv_command: python3 -m venv
+
+    - name: play fails when HCLOUD_CCM_TOKEN is not set
+      ansible.builtin.fail:
+        msg: "HCLOUD_CCM_TOKEN is not set"
+      when: lookup('env', 'HCLOUD_CCM_TOKEN') | trim == ""
+
+    - name: hetzner ccm secret is created
+      vars:
+        ansible_python_interpreter: "{{ k8s_python_venv }}/bin/python"
+      kubernetes.core.k8s:
+        kubeconfig: /etc/kubernetes/admin.conf
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: hcloud
+            namespace: kube-system
+          stringData:
+            token: "{{ lookup('env', 'HCLOUD_CCM_TOKEN') | trim }}"
+      no_log: true
+
 - name: cilium installation
   hosts: role_control_plane
   become: true
@@ -255,49 +298,6 @@
               enabled: true
           operator:
             replicas: 1
-
-- name: hetzner ccm secret setup
-  hosts: role_control_plane
-  become: true
-
-  vars:
-    # Ubuntu's python3-kubernetes (22.6.0) is older than kubernetes.core needs (>= 24.2.0),
-    # and pip is blocked in the system Python (PEP 668): the library lives in its own venv.
-    k8s_python_venv: /opt/ansible-k8s-venv
-    k8s_python_version: "37.0.1"
-
-  tasks:
-    - name: python venv package is present
-      ansible.builtin.apt:
-        name: python3-venv
-        state: present
-
-    - name: kubernetes python library is present
-      ansible.builtin.pip:
-        name: "kubernetes=={{ k8s_python_version }}"
-        virtualenv: "{{ k8s_python_venv }}"
-        virtualenv_command: python3 -m venv
-
-    - name: play fails when HCLOUD_CCM_TOKEN is not set
-      ansible.builtin.fail:
-        msg: "HCLOUD_CCM_TOKEN is not set"
-      when: lookup('env', 'HCLOUD_CCM_TOKEN') | trim == ""
-
-    - name: hetzner ccm secret is created
-      vars:
-        ansible_python_interpreter: "{{ k8s_python_venv }}/bin/python"
-      kubernetes.core.k8s:
-        kubeconfig: /etc/kubernetes/admin.conf
-        state: present
-        definition:
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: hcloud
-            namespace: kube-system
-          stringData:
-            token: "{{ lookup('env', 'HCLOUD_CCM_TOKEN') }}"
-      no_log: true
 
 - name: hetzner ccm deployment
   hosts: role_control_plane
