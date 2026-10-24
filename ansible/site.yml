@@ -362,6 +362,8 @@
 
   vars:
     hcloud_ccm_version: "1.39.1"
+    # Same range as kubeadm init --pod-network-cidr (ADR 0006).
+    pod_network_cidr: 10.244.0.0/16
 
   tasks:
     - name: hetzner ccm is installed
@@ -372,6 +374,20 @@
         chart_repo_url: https://charts.hetzner.cloud/
         chart_ref: hcloud-cloud-controller-manager
         chart_version: "{{ hcloud_ccm_version }}"
+        values:
+          # Kubelets announce their private IP (--node-ip): without the network, the CCM only
+          # knows the public addresses and never initializes the nodes.
+          networking:
+            enabled: true
+            clusterCIDR: "{{ pod_network_cidr }}"
+            # The network name is not a secret: the hcloud Secret keeps its token only.
+            network:
+              value: "{{ hcloud_network | default('') }}"
+              valueFrom: null
+          # Cilium keeps its VXLAN tunnel, no routes in the Hetzner network (ADR 0007).
+          env:
+            HCLOUD_NETWORK_ROUTES_ENABLED:
+              value: "false"
 
 - name: join command for workers node
   hosts: role_control_plane

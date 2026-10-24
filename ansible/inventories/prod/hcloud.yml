@@ -5,6 +5,7 @@ connect_with: public_ipv4
 compose:
   ansible_user: "'root'"
   node_ip: hcloud_private_networks[0].ip
+  hcloud_network: hcloud_private_networks[0].name
   cluster_endpoint_host: "'k8s-api.kowulabs.com'"
   cluster_endpoint_port: "6443"
   configure_private_network: "true"
