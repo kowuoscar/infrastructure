@@ -1,3 +1,60 @@
+- name: servers private network setup
+  hosts: all
+  become: true
+
+  tasks:
+    - name: private networks are read from the metadata service
+      ansible.builtin.uri:
+        url: http://169.254.169.254/hetzner/v1/metadata/private-networks
+        return_content: true
+      register: private_networks_metadata
+      when: configure_private_network | default(false)
+
+    # cloud-init configures this interface only once, at first boot: a server that reads
+    # its metadata before the network was attached never gets it (klabs-worker-2, 24 Oct 2026)
+    - name: private network is configured with dhcp
+      vars:
+        private_network: >-
+          {{ private_networks_metadata.content | from_yaml | selectattr('ip', 'equalto', node_ip) | first }}
+      ansible.builtin.copy:
+        dest: /etc/netplan/60-private-network.yaml
+        content: |
+          network:
+            version: 2
+            ethernets:
+              private:
+                match:
+                  macaddress: "{{ private_network.mac_address }}"
+                dhcp4: true
+        owner: root
+        group: root
+        mode: "0600"
+      notify: Apply netplan
+      when: configure_private_network | default(false)
+
+    # Handlers normally wait for the end of the play: the check below needs netplan applied now
+    - name: pending handlers run now
+      ansible.builtin.meta: flush_handlers
+
+    # DHCP takes a few seconds after netplan apply
+    - name: ipv4 addresses are read
+      ansible.builtin.command: ip -4 -brief address
+      register: ipv4_addresses
+      until: (node_ip ~ '/') in ipv4_addresses.stdout
+      retries: 5
+      delay: 3
+      changed_when: false
+      failed_when: false
+
+    - name: play fails when node_ip is not configured on the host
+      ansible.builtin.fail:
+        msg: "{{ node_ip }} is not configured on any interface of {{ inventory_hostname }}"
+      when: (node_ip ~ '/') not in ipv4_addresses.stdout
+
+  handlers:
+    - name: Apply netplan
+      ansible.builtin.command: netplan apply
+
 - name: containerd and kubeadm setup
   hosts: all
   become: true
