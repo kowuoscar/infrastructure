@@ -7,6 +7,7 @@ compose:
   node_ip: hcloud_private_networks[0].ip
   cluster_endpoint_host: "'k8s-api.kowulabs.com'"
   cluster_endpoint_port: "6443"
+  configure_private_network: "true"
 
 keyed_groups:
   - key: hcloud_location
