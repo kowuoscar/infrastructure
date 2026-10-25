@@ -10,6 +10,7 @@ This is Oscar's production platform (Kowu Labs)
 
 - **ADR:** Before finalizing ADR, make sure Oscar understands each decisions by letting him express himself. Go around each section of the ADR as defined in the template, ask him to write down what he understands and once all sections are covered, write down the ADR.
 - **Examples:** Always give code examples when teaching about a tool to illustrate the patterns being teached (CLI, Ansible, Terraform, GitHub workflow, etc ...). Use context7 to get the latest up to dates documentations.
+- **Setup steps:** When a step is plumbing rather than the concept being taught (downloading a release, verifying a checksum, installing a binary, opening a docs page), give the exact URLs and the full commands, ready to paste. His prediction and the manipulation of the concept itself stay his.
 
 ## Sessions
 
