@@ -4,7 +4,7 @@ Work for this repo lives in Linear, through the `linear-server` MCP tools. GitHu
 
 ## Where
 
-- **Team:** Kowu Labs (key `PRD`). Pass the team by name or by ID `7f359d33-41d3-44b5-887a-d2eae1a5db9c`.
+- **Team:** Kowu Labs (key `KLB`). Pass the team by name or by ID `7f359d33-41d3-44b5-887a-d2eae1a5db9c`.
 - **Project:** Infrastructure.
 - **Milestones**, in order of work: M0 · Foundations → M1 · Cloud layer → M3 · Cluster → M4 · Platform core → M2 · Hardened hosts → M5 · Data → M6 · Observability → M7 · First tenant → M8 · Rebuild drill. M2 comes after M4 by Oscar's decision (15 Oct 2026).
 - **Assignee:** always Oscar (`me`).
@@ -51,6 +51,6 @@ Predictions, gaps and evidence about concepts go to the Learning Platform, not t
 
 ## Branches and PRs
 
-- Branch from the ticket's `gitBranchName` (e.g. `devsokowu/prd-21-protect-prod-against-destruction`).
-- Put the ticket identifier in the PR title or body (`Fixes PRD-21`) so the Linear GitHub integration links the PR and moves the ticket.
+- Branch from the ticket's `gitBranchName` (e.g. `devsokowu/klb-21-protect-prod-against-destruction`).
+- Put the ticket identifier in the PR title or body (`Fixes KLB-21`) so the Linear GitHub integration links the PR and moves the ticket.
 - He commits and merges. Close a ticket only after its Review passes.
