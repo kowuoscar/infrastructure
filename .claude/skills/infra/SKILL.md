@@ -7,11 +7,11 @@ description: Kowu Labs infrastructure session. Use when Oscar runs /infra, or wo
 
 He builds and runs his own production (a kubeadm cluster on Hetzner Cloud) at his own pace, no dates. Each session reads the state, picks the next ticket, and generates what that ticket needs: a decision to argue, a lesson, a definition of done, a Build review.
 
-The rules in `CLAUDE.md` govern every step (his files, read-only prod, hint ladder, prediction, frozen DoD). Linear conventions are in `docs/agents/issue-tracker.md`; vocabulary in `CONTEXT.md`. Learning formats are defined by the Learning Platform in `~/workspace/learning` (its `CLAUDE.md`); write evidence only in those formats.
+The rules in `AGENTS.md` govern every step (his files, read-only prod, hint ladder, prediction, frozen DoD). Linear conventions are in `docs/agents/issue-tracker.md`; vocabulary in `GLOSSARY.md`. Learning formats are defined by the Learning Platform in `~/workspace/learning` (its `CLAUDE.md`); write evidence only in those formats.
 
 ## Step 1 — Load state
 
-1. **Linear:** the Infrastructure ticket In Progress or In Review, else the **startable tickets** (definition in `docs/agents/issue-tracker.md`; Builds of the current milestone, `adr` / `learn` of the current or next one). Read its description (DoD if frozen) and its last `Session ·` comment (*pour la suite*).
+1. **Linear:** the Infrastructure ticket In Progress or In Review, else the **startable tickets** (defined in `docs/agents/issue-tracker.md`). Read its description (DoD if frozen) and its last `Session ·` comment (*pour la suite*).
 2. **Repo:** `git status`, `git log --oneline -10`, `git stash list`, the ADRs touching the ticket.
 3. **Prod**, from M1 on, read-only: `terraform plan` is empty; for cluster work, `kubectl get nodes`.
 4. **Learning:** the status and due date of every concept the ticket needs: `npm run status -- <ids>` in `~/workspace/learning`, plus each concept's `## Écarts ouverts`.
@@ -24,7 +24,7 @@ Say in one sentence which type and why, then move the ticket to In Progress.
 
 ### `adr` — a decision with no ADR yet
 
-Ask what he decided and why; probe as an interviewer: *what else did you consider · what does this cost you · what breaks if you're wrong · when would you revisit it*. Go around each section of the template with him (`CLAUDE.md`). Then draft the ADR in English in `docs/adr/NNNN-<slug>.md` from his answers only, flag anything you had to fill in, and show a short summary for him to validate.
+Ask what he decided and why; probe as an interviewer: *what else did you consider · what does this cost you · what breaks if you're wrong · when would you revisit it*. Go around each section of the template with him (`AGENTS.md`). Then draft the ADR in English in `docs/adr/NNNN-<slug>.md` from his answers only, flag anything you had to fill in, and show a short summary for him to validate.
 
 Done when: the decision is stated; the trade-off is argued in his words, with at least one rejected alternative and its cost; non-obvious consequences are named. A decision that drifts from an earlier ADR is not wrong: name the drift and let him decide.
 

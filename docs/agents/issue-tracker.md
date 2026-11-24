@@ -30,7 +30,7 @@ Backlog (not next) → Todo (next up) → In Progress (a session is on it) → I
 - **Create / update:** `save_issue` with `team`, `project`, `milestone`, `labels`, `assignee: me`. Write for a human: short sentences, the same term for the same concept.
 - **Blocking:** native relations (`blockedBy` / `blocks`), plus a `## Blocked by` section in the body. A ticket is startable when every blocker is Done.
 - **Startable tickets:** open tickets with no open blocker that are either a `build` or `debt` of the current milestone, or an `adr` / `learn` of the current or the next milestone (decided 21 Nov 2026: decisions and lessons do not touch prod, so they may run ahead; Builds stay in milestone order). Todo before Backlog, higher priority first. Not "frontier", which is a Learning Platform term.
-- **Vocabulary:** terms are defined in `CONTEXT.md` at the repo root; learning terms in `~/workspace/learning/GLOSSARY.md`.
+- **Vocabulary:** terms are defined in `GLOSSARY.md` at the repo root; learning terms in `~/workspace/learning/GLOSSARY.md`.
 - **Ordered lists:** Linear renumbers markdown ordered lists. When numbers carry meaning (frozen DoD items), write them as `**Point 5.**` paragraphs, not as a list.
 
 ## The DoD on a Build
