@@ -88,6 +88,7 @@ resource "hcloud_server" "node" {
   firewall_ids      = [hcloud_firewall.nodes.id, hcloud_firewall.runner.id]
   labels            = { role = each.value.role }
   delete_protection = true
+  rebuild_protection = true
 
   network {
     network_id = hcloud_network.network.id
