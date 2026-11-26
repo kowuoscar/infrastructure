@@ -9,6 +9,7 @@ updates:
     directories: 
       - "/terraform/bootstrap" # Location of package manifests
       - "/terraform/dns" # Location of package manifests
+      - "/terraform/cluster" # Location of package manifests
     schedule:
       interval: "weekly"
   - package-ecosystem: "github-actions"

@@ -12,11 +12,19 @@ locals {
 resource "hcloud_ssh_key" "oscar" {
   name       = "oscar"
   public_key = trimspace(file("${path.module}/keys/oscar.pub"))
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "hcloud_ssh_key" "ci" {
   name       = "ci-ssh-key"
   public_key = trimspace(file("${path.module}/keys/ci-ssh.pub"))
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Network
@@ -24,6 +32,10 @@ resource "hcloud_ssh_key" "ci" {
 resource "hcloud_network" "network" {
   name     = "klabs-network"
   ip_range = "10.0.0.0/16"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "hcloud_network_subnet" "nodes" {
@@ -31,6 +43,10 @@ resource "hcloud_network_subnet" "nodes" {
   type         = "cloud"
   network_zone = "eu-central"
   ip_range     = "10.0.1.0/24"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Firewall
@@ -45,6 +61,10 @@ resource "hcloud_firewall" "nodes" {
       "${var.source_ip}/32"
     ]
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "hcloud_firewall" "runner" {
@@ -52,6 +72,7 @@ resource "hcloud_firewall" "runner" {
 
   lifecycle {
     ignore_changes = [rule]
+    prevent_destroy = true
   }
 }
 
@@ -66,6 +87,7 @@ resource "hcloud_server" "node" {
   ssh_keys     = [hcloud_ssh_key.oscar.id, hcloud_ssh_key.ci.id]
   firewall_ids = [hcloud_firewall.nodes.id, hcloud_firewall.runner.id]
   labels       = { role = each.value.role }
+  delete_protection = true
 
   network {
     network_id = hcloud_network.network.id
@@ -73,4 +95,8 @@ resource "hcloud_server" "node" {
   }
 
   depends_on = [hcloud_network_subnet.nodes]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
