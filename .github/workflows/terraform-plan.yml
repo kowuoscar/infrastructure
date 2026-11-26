@@ -40,6 +40,8 @@ jobs:
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: 1.16.1
+          # The wrapper echoes extra lines on stdout, which breaks piping `terraform show -json` into jq.
+          terraform_wrapper: false
 
       - name: terraform fmt
         run: terraform fmt -check -recursive
@@ -51,4 +53,16 @@ jobs:
         run: terraform validate
 
       - name: terraform plan
-        run: terraform plan -input=false -no-color
+        run: terraform plan -input=false -no-color -out=tfplan
+
+      # A pure delete fails the job. A replacement (["delete","create"] or ["create","delete"]) does not:
+      # the apply workflows gate it behind an approval instead.
+      - name: block deletions
+        run: |
+          deletes=$(terraform show -json tfplan | jq -r '.resource_changes[]? | select(.change.actions == ["delete"]) | "\(.change.actions | join("+")) \(.address)"')
+          if [ -n "$deletes" ]; then
+            echo "::error title=Deletion::The plan deletes resources in terraform/${{ matrix.root }}"
+            echo "$deletes"
+            exit 1
+          fi
+          echo "No deletion in terraform/${{ matrix.root }}."
