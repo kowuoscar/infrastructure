@@ -33,9 +33,26 @@ jobs:
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: 1.16.1
+          # The wrapper echoes extra lines on stdout, which breaks piping `terraform show -json` into jq.
+          terraform_wrapper: false
 
       - name: terraform init
         run: terraform init -input=false
 
+      - name: terraform plan
+        run: terraform plan -input=false -no-color -out=tfplan
+
+      # Any delete fails the job, replacements included (actions ["delete","create"] or ["create","delete"]).
+      - name: block deletions
+        run: |
+          deletes=$(terraform show -json tfplan | jq -r '.resource_changes[]? | select(any(.change.actions[]; . == "delete")) | "\(.change.actions | join("+")) \(.address)"')
+          if [ -n "$deletes" ]; then
+            echo "::error title=Deletion::The plan deletes or replaces resources in terraform/dns"
+            echo "$deletes"
+            exit 1
+          fi
+          echo "No deletion or replacement in terraform/dns."
+
+      # Applies the plan checked above, nothing else.
       - name: terraform apply
-        run: terraform apply -input=false -auto-approve -no-color
+        run: terraform apply -input=false -no-color tfplan

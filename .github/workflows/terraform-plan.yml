@@ -55,14 +55,13 @@ jobs:
       - name: terraform plan
         run: terraform plan -input=false -no-color -out=tfplan
 
-      # A pure delete in cluster fails the job. A replacement (delete + create) does not.
-      - name: block deletions in cluster
-        if: matrix.root == 'cluster'
+      # Any delete fails the job, replacements included (actions ["delete","create"] or ["create","delete"]).
+      - name: block deletions
         run: |
-          deletes=$(terraform show -json tfplan | jq -r '.resource_changes[]? | select(.change.actions == ["delete"]) | .address')
+          deletes=$(terraform show -json tfplan | jq -r '.resource_changes[]? | select(any(.change.actions[]; . == "delete")) | "\(.change.actions | join("+")) \(.address)"')
           if [ -n "$deletes" ]; then
-            echo "::error title=Cluster deletion::The plan deletes resources in terraform/cluster"
+            echo "::error title=Deletion::The plan deletes or replaces resources in terraform/${{ matrix.root }}"
             echo "$deletes"
             exit 1
           fi
-          echo "No deletion in terraform/cluster."
+          echo "No deletion or replacement in terraform/${{ matrix.root }}."
