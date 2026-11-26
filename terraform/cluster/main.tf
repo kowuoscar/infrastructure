@@ -71,7 +71,7 @@ resource "hcloud_firewall" "runner" {
   name = "ci-ssh"
 
   lifecycle {
-    ignore_changes = [rule]
+    ignore_changes  = [rule]
     prevent_destroy = true
   }
 }
@@ -79,14 +79,14 @@ resource "hcloud_firewall" "runner" {
 # Servers
 
 resource "hcloud_server" "node" {
-  for_each     = local.nodes
-  name         = each.key
-  server_type  = each.value.type
-  image        = "ubuntu-24.04"
-  location     = "fsn1"
-  ssh_keys     = [hcloud_ssh_key.oscar.id, hcloud_ssh_key.ci.id]
-  firewall_ids = [hcloud_firewall.nodes.id, hcloud_firewall.runner.id]
-  labels       = { role = each.value.role }
+  for_each          = local.nodes
+  name              = each.key
+  server_type       = each.value.type
+  image             = "ubuntu-24.04"
+  location          = "fsn1"
+  ssh_keys          = [hcloud_ssh_key.oscar.id, hcloud_ssh_key.ci.id]
+  firewall_ids      = [hcloud_firewall.nodes.id, hcloud_firewall.runner.id]
+  labels            = { role = each.value.role }
   delete_protection = true
 
   network {
