@@ -55,13 +55,14 @@ jobs:
       - name: terraform plan
         run: terraform plan -input=false -no-color -out=tfplan
 
-      # Any delete fails the job, replacements included (actions ["delete","create"] or ["create","delete"]).
+      # A pure delete fails the job. A replacement (["delete","create"] or ["create","delete"]) does not:
+      # the apply workflows gate it behind an approval instead.
       - name: block deletions
         run: |
-          deletes=$(terraform show -json tfplan | jq -r '.resource_changes[]? | select(any(.change.actions[]; . == "delete")) | "\(.change.actions | join("+")) \(.address)"')
+          deletes=$(terraform show -json tfplan | jq -r '.resource_changes[]? | select(.change.actions == ["delete"]) | "\(.change.actions | join("+")) \(.address)"')
           if [ -n "$deletes" ]; then
-            echo "::error title=Deletion::The plan deletes or replaces resources in terraform/${{ matrix.root }}"
+            echo "::error title=Deletion::The plan deletes resources in terraform/${{ matrix.root }}"
             echo "$deletes"
             exit 1
           fi
-          echo "No deletion or replacement in terraform/${{ matrix.root }}."
+          echo "No deletion in terraform/${{ matrix.root }}."

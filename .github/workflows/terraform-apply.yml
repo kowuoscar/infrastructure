@@ -11,22 +11,19 @@ permissions:
   contents: read
 
 jobs:
-  apply-dns:
+  # Read-only plan: decides whether the apply needs an approval.
+  check:
     runs-on: ubuntu-24.04
-    environment: production
-    # Option B (ADR 0003): Hetzner does not lock the state, so applies run one at a time.
-    # Never cancel a running apply: it would leave resources created but missing from the state.
-    concurrency:
-      group: terraform-apply-dns
-      cancel-in-progress: false
     defaults:
       run:
         working-directory: terraform/dns
     env:
       TF_IN_AUTOMATION: "1"
-      AWS_ACCESS_KEY_ID: ${{ secrets.HETZNER_S3_RW_ACCESS_KEY }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.HETZNER_S3_RW_SECRET_KEY }}
-      TF_VAR_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.HETZNER_S3_RO_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.HETZNER_S3_RO_SECRET_KEY }}
+      TF_VAR_api_token: ${{ secrets.CLOUDFLARE_READ_TOKEN }}
+    outputs:
+      destructive: ${{ steps.detect.outputs.destructive }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -42,16 +39,65 @@ jobs:
       - name: terraform plan
         run: terraform plan -input=false -no-color -out=tfplan
 
-      # Any delete fails the job, replacements included (actions ["delete","create"] or ["create","delete"]).
-      - name: block deletions
+      # Destructive = any delete, replacements included (["delete","create"] or ["create","delete"]).
+      - name: detect deletions and replacements
+        id: detect
         run: |
           deletes=$(terraform show -json tfplan | jq -r '.resource_changes[]? | select(any(.change.actions[]; . == "delete")) | "\(.change.actions | join("+")) \(.address)"')
           if [ -n "$deletes" ]; then
-            echo "::error title=Deletion::The plan deletes or replaces resources in terraform/dns"
+            echo "::warning title=Approval required::The plan deletes or replaces resources in terraform/dns"
+            echo "$deletes"
+            echo "destructive=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No deletion or replacement in terraform/dns."
+            echo "destructive=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  apply-dns:
+    needs: check
+    runs-on: ubuntu-24.04
+    # A destructive plan goes to the environment with required reviewers, so the job waits for approval.
+    environment: ${{ needs.check.outputs.destructive == 'true' && 'production-destructive' || 'production' }}
+    # Option B (ADR 0003): Hetzner does not lock the state, so applies run one at a time.
+    # Never cancel a running apply: it would leave resources created but missing from the state.
+    concurrency:
+      group: terraform-apply-dns
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: terraform/dns
+    env:
+      TF_IN_AUTOMATION: "1"
+      AWS_ACCESS_KEY_ID: ${{ secrets.HETZNER_S3_RW_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.HETZNER_S3_RW_SECRET_KEY }}
+      TF_VAR_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      APPROVED_DESTRUCTIVE: ${{ needs.check.outputs.destructive }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.16.1
+          # The wrapper echoes extra lines on stdout, which breaks piping `terraform show -json` into jq.
+          terraform_wrapper: false
+
+      - name: terraform init
+        run: terraform init -input=false
+
+      # Re-planned here: the plan file holds variable values (tokens), so it never leaves this job.
+      - name: terraform plan
+        run: terraform plan -input=false -no-color -out=tfplan
+
+      # The state may have changed since `check`. A destructive plan that was not approved stops here.
+      - name: block unapproved deletions and replacements
+        run: |
+          deletes=$(terraform show -json tfplan | jq -r '.resource_changes[]? | select(any(.change.actions[]; . == "delete")) | "\(.change.actions | join("+")) \(.address)"')
+          if [ -n "$deletes" ] && [ "$APPROVED_DESTRUCTIVE" != "true" ]; then
+            echo "::error title=Unapproved deletion::The plan now deletes or replaces resources in terraform/dns, but none were found by the check job"
             echo "$deletes"
             exit 1
           fi
-          echo "No deletion or replacement in terraform/dns."
+          [ -n "$deletes" ] && echo "Approved deletions and replacements:" && echo "$deletes" || true
 
       # Applies the plan checked above, nothing else.
       - name: terraform apply
